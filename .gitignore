@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+
+# Local tool state
+.claude/
+.claude.json
+
+# Build / runtime artefacts
+build/
+dist/
+*.so
+
+# Solver state — never commit work files or checkpoints
+*.work
+*.ckpt
+
+# Smoke-test scratch (generated puzzles include known answers)
+/tmp/puzzle.txt*
+work/

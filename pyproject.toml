@@ -1,0 +1,23 @@
+[project]
+name = "kangaroo"
+version = "0.0.1"
+description = "Pollard's Kangaroo ECDLP solver for secp256k1, targeting Bitcoin Puzzle #135."
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "coincurve>=18",
+    "pytest>=7",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(levelname)-7s %(name)s: %(message)s"
+addopts = "-m 'not slow'"
+markers = [
+    "slow: minute-scale tests excluded from default runs (opt in with -m slow)",
+]
