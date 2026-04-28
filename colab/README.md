@@ -7,14 +7,27 @@ Notebooks intended to run on Google Colab against a T4 GPU runtime.
 Verifies the full toolchain end-to-end on a tiny synthetic puzzle:
 
 1. confirms a T4 is attached
-2. clones and builds Kangaroo-256 with `ccap=75`
+2. clones and builds **JeanLucPons/Kangaroo** with `ccap=75` (Makefile path
+   overrides for Colab's CUDA 12 / g++ 11 layout)
 3. generates a 60-bit synthetic puzzle via `scripts/make_synthetic_puzzle.py`
-   (~1 second on T4)
 4. runs the GPU solver against it
 5. asserts the recovered key matches the known answer in the manifest
 
-If this passes, the build path is good and we can move on to the production
-solver notebook (Drive mount, work-file checkpointing, idle-clean exit).
+### Why plain JLP and not Kangaroo-256?
+
+K-256 is the eventual production target — puzzle #135 needs a 134-bit interval
+which JLP can't handle (125-bit cap). But on Colab T4, K-256 misbehaves on
+narrow intervals: GPU runs at ~600 MK/s indefinitely without finding the key
+(verified across multiple bit widths and `dp_bits` values; pubkey generation
+checked against `coincurve` and matches).
+
+Plain JLP is the gold standard with mature defaults; using it for the smoke
+test validates the rest of the pipeline (build, puzzle gen, invocation, key
+verification) while the K-256 issue is investigated separately.
+
+**TODO** before puzzle-#135 attempt: either find a working >125-bit fork on
+T4, fix K-256 (likely a narrow-interval edge case in its 256-bit arithmetic
+or auto-DP picker), or fork JLP and patch the cap ourselves.
 
 ### How to run
 
