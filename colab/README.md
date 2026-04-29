@@ -7,27 +7,32 @@ Notebooks intended to run on Google Colab against a T4 GPU runtime.
 Verifies the full toolchain end-to-end on a tiny synthetic puzzle:
 
 1. confirms a T4 is attached
-2. clones and builds **JeanLucPons/Kangaroo** with `ccap=75` (Makefile path
-   overrides for Colab's CUDA 12 / g++ 11 layout)
+2. clones and builds **RetiredC/RCKangaroo** (`make CUDA_PATH=/usr/local/cuda`;
+   sm_75 is in the default flags)
 3. generates a 60-bit synthetic puzzle via `scripts/make_synthetic_puzzle.py`
-4. runs the GPU solver against it
-5. asserts the recovered key matches the known answer in the manifest
+4. runs the GPU solver against it (`-gpu 0 -dp 14 -range 59 -start 8…0 -pubkey 03…`)
+5. parses `RESULTS.TXT` (RCKangaroo writes the recovered key here) and asserts
+   it matches the known answer in the manifest
 
-### Why plain JLP and not Kangaroo-256?
+### Why RCKangaroo
 
-K-256 is the eventual production target — puzzle #135 needs a 134-bit interval
-which JLP can't handle (125-bit cap). But on Colab T4, K-256 misbehaves on
-narrow intervals: GPU runs at ~600 MK/s indefinitely without finding the key
-(verified across multiple bit widths and `dp_bits` values; pubkey generation
-checked against `coincurve` and matches).
+- **170-bit max range** (covers puzzle #135's 134-bit need)
+- **SOTA equivalence-class negation** → ~1.15·√n ops vs JLP's 2.08·√n; ~1.8×
+  faster, materially improves the lottery odds
+- 130 ⭐, GPL-3.0, active (v3.1 Nov 2025)
+- Linux/CUDA buildable, T4 (sm_75) included in default `NVCCFLAGS`
+- Used by puzzle-hunting community; PSCKangaroo (a fork) explicitly cites
+  puzzle #135's pubkey in its examples
 
-Plain JLP is the gold standard with mature defaults; using it for the smoke
-test validates the rest of the pipeline (build, puzzle gen, invocation, key
-verification) while the K-256 issue is investigated separately.
+### What we tried first
 
-**TODO** before puzzle-#135 attempt: either find a working >125-bit fork on
-T4, fix K-256 (likely a narrow-interval edge case in its 256-bit arithmetic
-or auto-DP picker), or fork JLP and patch the cap ourselves.
+- **JLP** — gold standard, smoke-passed on T4, but 125-bit cap means it can't
+  ever attempt puzzle #135.
+- **Kangaroo-256 (ZenulAbidin)** — 256-bit but hangs on Colab T4 across all
+  bit widths and `dp_bits` we tried (pubkey checked against `coincurve`, so
+  the hang isn't on our side). Likely an edge case in its 256-bit arithmetic
+  or auto-DP picker; not worth debugging when RCKangaroo just works.
+- **Etarkangaroo (Etayson)** — Windows-only PureBasic, can't build on Linux.
 
 ### How to run
 
