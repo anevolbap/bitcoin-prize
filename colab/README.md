@@ -57,15 +57,31 @@ puzzle from the series (#65+) on a smoke test would take minutes-to-hours and
 the recovered key has economic value — neither is what you want from a
 "is the toolchain working" check.
 
-## Future: `solver.ipynb`
+## `solver.ipynb` — production solver for puzzle #135
 
-Targets the real puzzle #135 (constants in `kangaroo/puzzle_135.py`). Adds:
+Points RCKangaroo at the real target. Designed for the 12-hour Colab session
+limit:
 
-- Drive mount + checkpoint round-trip across the Colab 12-hour session limit
-- work-file save every ~20 min (`-w state.work -wi 1200`)
-- resume detection (`-i state.work` if exists)
-- clean exit on idle/timeout signal
-- a kill-switch for the unlikely event a real key is found, so the recovered
-  key isn't broadcast over an untrusted channel
+1. Drive mount → fresh project clone → RCKangaroo build (with nvcc detect)
+2. Loads pubkey/range from `kangaroo.puzzle_135` (constants verified by tests)
+3. Resumes from `Drive/MyDrive/kangaroo_135/tames.bin` if present
+4. Spawns the solver with stdout streamed to a per-session log
+5. Every 20 min: copies the tames file to Drive (atomic, via .tmp + replace)
+6. At 11h elapsed: sends SIGTERM (1h buffer before Colab's 12h kill);
+   SIGKILL after 60s if the process doesn't exit
+7. If `RESULTS.TXT` appears: parses the recovered key and runs
+   `kangaroo.verify.verify_solution` (interval bracket, on-curve, `d*G == Q`)
+   before saving the verified result to Drive
 
-Not yet written.
+### Known limitations
+
+- **Wild walks don't persist.** RCKangaroo's `-tames` is a precomputed-tames
+  file, not a generic checkpoint. Each session restarts wild kangaroos. Tame
+  DPs accumulate across sessions, which is the dominant cost reduction.
+- **SIGTERM behavior is empirical.** Whether RCKangaroo writes the tames
+  file in its exit path on SIGTERM is undocumented; if it doesn't, a session's
+  *new* tame walks are lost on signal. Worth validating once GPU quota allows.
+- **No claim-transaction builder.** If a key is actually found, the verified
+  result is archived to Drive but not broadcast. Front-running on puzzle
+  prizes is a real precedent (~10% loss); claim tx must go through a private
+  relay (Mara Slipstream or similar). That's separate work.
