@@ -59,28 +59,39 @@ the recovered key has economic value — neither is what you want from a
 
 ## `solver.ipynb` — production solver for puzzle #135
 
-Points RCKangaroo at the real target. Designed for the 12-hour Colab session
-limit:
+Points RCKangaroo at the real target. Each Colab session is an independent
+solve attempt:
 
 1. Drive mount → fresh project clone → RCKangaroo build (with nvcc detect)
 2. Loads pubkey/range from `kangaroo.puzzle_135` (constants verified by tests)
-3. Resumes from `Drive/MyDrive/kangaroo_135/tames.bin` if present
-4. Spawns the solver with stdout streamed to a per-session log
-5. Every 20 min: copies the tames file to Drive (atomic, via .tmp + replace)
-6. At 11h elapsed: sends SIGTERM (1h buffer before Colab's 12h kill);
-   SIGKILL after 60s if the process doesn't exit
-7. If `RESULTS.TXT` appears: parses the recovered key and runs
+3. Spawns the solver with stdout streamed to a per-session log on Drive
+4. Polls every minute; prints a heartbeat with log tail every 20 min
+5. If `RESULTS.TXT` appears: parses the recovered key and runs
    `kangaroo.verify.verify_solution` (interval bracket, on-curve, `d*G == Q`)
    before saving the verified result to Drive
 
+### Why no checkpointing
+
+RCKangaroo's `-tames` is intended for a multi-day GEN run on serious hardware:
+it only writes the tames file when the `-max` ops budget is exhausted (no
+periodic save), and the parser rejects `-max < 0.001`. On a T4, even
+`-max 0.001` would take ~7 years of GEN before the file gets written, so
+the tames file never lands on disk in a free-Colab session. Each session
+just runs the full solver and accepts that state doesn't persist.
+
+This is fine for the lottery-ticket framing: at ~7,400-year expected solve
+time, no realistic amount of accumulated tames changes the per-session
+probability (~3×10⁻⁸ at 2h on T4).
+
+### Independent exploration across sessions
+
+RCKangaroo seeds the jump table with `0` (deterministic, for tames-file
+compatibility) but re-seeds with `GetTickCount64()` before generating
+kangaroo starting positions. So consecutive sessions explore different
+walks, even with no persistence between them.
+
 ### Known limitations
 
-- **Wild walks don't persist.** RCKangaroo's `-tames` is a precomputed-tames
-  file, not a generic checkpoint. Each session restarts wild kangaroos. Tame
-  DPs accumulate across sessions, which is the dominant cost reduction.
-- **SIGTERM behavior is empirical.** Whether RCKangaroo writes the tames
-  file in its exit path on SIGTERM is undocumented; if it doesn't, a session's
-  *new* tame walks are lost on signal. Worth validating once GPU quota allows.
 - **No claim-transaction builder.** If a key is actually found, the verified
   result is archived to Drive but not broadcast. Front-running on puzzle
   prizes is a real precedent (~10% loss); claim tx must go through a private
