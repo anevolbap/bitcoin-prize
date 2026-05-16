@@ -62,26 +62,26 @@ the recovered key has economic value — neither is what you want from a
 Points RCKangaroo at the real target. Each Colab session is an independent
 solve attempt:
 
-1. Drive mount → fresh project clone → RCKangaroo build (with nvcc detect)
+1. Fresh project clone → RCKangaroo build (with nvcc detect)
 2. Loads pubkey/range from `kangaroo.puzzle_135` (constants verified by tests)
-3. Spawns the solver with stdout streamed to a per-session log on Drive
+3. Spawns the solver with stdout streamed to a local log
 4. Polls every minute; prints a heartbeat with log tail every 20 min
-5. If `RESULTS.TXT` appears: parses the recovered key and runs
+5. If `RESULTS.TXT` appears: parses the recovered key, runs
    `kangaroo.verify.verify_solution` (interval bracket, on-curve, `d*G == Q`)
-   before saving the verified result to Drive
+   and prints the verified key for the user to copy out
 
-### Why no checkpointing
+### Why no Drive, no checkpointing
 
 RCKangaroo's `-tames` is intended for a multi-day GEN run on serious hardware:
 it only writes the tames file when the `-max` ops budget is exhausted (no
 periodic save), and the parser rejects `-max < 0.001`. On a T4, even
 `-max 0.001` would take ~7 years of GEN before the file gets written, so
-the tames file never lands on disk in a free-Colab session. Each session
-just runs the full solver and accepts that state doesn't persist.
+the tames file never lands on disk in a free-Colab session.
 
-This is fine for the lottery-ticket framing: at ~7,400-year expected solve
-time, no realistic amount of accumulated tames changes the per-session
-probability (~3×10⁻⁸ at 2h on T4).
+With no useful state to persist, Drive only adds reauth friction every
+session. If a key is ever found (per-session probability ~3×10⁻⁸ at 2h on
+T4) the verified key is printed in the cell output and sits in local
+`RESULTS.TXT`; copy it out of the browser before the runtime is recycled.
 
 ### Independent exploration across sessions
 
@@ -93,6 +93,6 @@ walks, even with no persistence between them.
 ### Known limitations
 
 - **No claim-transaction builder.** If a key is actually found, the verified
-  result is archived to Drive but not broadcast. Front-running on puzzle
-  prizes is a real precedent (~10% loss); claim tx must go through a private
-  relay (Mara Slipstream or similar). That's separate work.
+  key is only printed to the cell output. Front-running on puzzle prizes is
+  a real precedent (~10% loss); claim tx must go through a private relay
+  (Mara Slipstream or similar). That's separate work.
