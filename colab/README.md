@@ -62,37 +62,43 @@ the recovered key has economic value — neither is what you want from a
 Points RCKangaroo at the real target. Each Colab session is an independent
 solve attempt:
 
-1. Fresh project clone → RCKangaroo build (with nvcc detect)
+1. Mounts Drive (one auth click), fresh project clone → RCKangaroo build
 2. Loads pubkey/range from `kangaroo.puzzle_135` (constants verified by tests)
 3. Spawns the solver with stdout streamed to a local log
 4. Polls every minute; prints a heartbeat with log tail every 20 min
-5. If `RESULTS.TXT` appears: parses the recovered key, runs
-   `kangaroo.verify.verify_solution` (interval bracket, on-curve, `d*G == Q`)
-   and prints the verified key for the user to copy out
+5. If `RESULTS.TXT` appears: copies it to Drive, parses the recovered key,
+   runs `kangaroo.verify.verify_solution` (interval bracket, on-curve,
+   `d*G == Q`) and prints the verified key
 
-### Why no Drive, no checkpointing
+### No checkpointing, Drive mounted at the start
 
 RCKangaroo's `-tames` is intended for a multi-day GEN run on serious hardware:
 it only writes the tames file when the `-max` ops budget is exhausted (no
 periodic save), and the parser rejects `-max < 0.001`. On a T4, even
 `-max 0.001` would take ~7 years of GEN before the file gets written, so
-the tames file never lands on disk in a free-Colab session.
+the tames file never lands on disk in a free-Colab session. There is no
+useful search state to persist across sessions.
 
-With no useful state to persist, Drive only adds reauth friction every
-session. If a key is ever found (per-session probability ~3×10⁻⁸ at 2h on
-T4) the verified key is printed in the cell output and sits in local
-`RESULTS.TXT`; copy it out of the browser before the runtime is recycled.
+Drive is mounted in the setup cell, not lazily on a find. The OAuth token
+does not survive a runtime recycle on free Colab, so a fresh session always
+needs one auth click; doing it up front (while you are already running cells)
+makes the find-time save a plain file copy with no interactive step. A lazy
+mount would block on the auth prompt if a key were found while you were away,
+risking loss on the next recycle. On a find (per-session probability ~3×10⁻⁸
+at 2h on T4) the solver's `RESULTS.TXT` is copied to
+`MyDrive/kangaroo_135/RESULTS-<timestamp>.txt`, which survives a recycle; the
+cell output and local `/content` do not.
 
 ### Independent exploration across sessions
 
 RCKangaroo seeds the jump table with `0` (deterministic, for tames-file
 compatibility) but re-seeds with `GetTickCount64()` before generating
 kangaroo starting positions. So consecutive sessions explore different
-walks, even with no persistence between them.
+walks, even with no search state persisted between them.
 
 ### Known limitations
 
-- **No claim-transaction builder.** If a key is actually found, the verified
-  key is only printed to the cell output. Front-running on puzzle prizes is
-  a real precedent (~10% loss); claim tx must go through a private relay
-  (Mara Slipstream or similar). That's separate work.
+- **No claim-transaction builder.** If a key is actually found, the result is
+  saved to Drive but not broadcast. Front-running on puzzle prizes is a real
+  precedent (~10% loss); claim tx must go through a private relay (Mara
+  Slipstream or similar). That's separate work.
